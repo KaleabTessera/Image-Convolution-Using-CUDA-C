@@ -15,11 +15,9 @@ void flipKernel(float* kernel, int kernelDimension);
 void loadKernels(float * kernel, char buf[512]);
 void loadAllKernels(float ** kernels,  FILE* fp);
 int getNumKernels(FILE* fp);
-float applyKernelPerPixel(int y, int x,int kernelX, int kernelY, int imageWidth, int imageHeight, float * kernel,float *image);
-<<<<<<< HEAD
+float applyKernelPerPixel(int y, int x,int kernelX, int kernelY, int imageWidth, int imageHeight, float *kernel, float *image);
 void applyKernelToImageParallelNaive(float * image, int imageWidth, int imageHeight, float * kernel, int kernelDimension, char *imagePath);
-=======
->>>>>>> 63a843e3a9b05e0b4bd214d39f6d506727b17a17
+__global__ void applyKernelPerPixelParallel(int * kernelX, int * kernelY, int * imageWidth, int * imageHeight, float * kernel, float * image,float * sumArray);
 
 int main(int argc, char **argv)
 {
@@ -67,12 +65,7 @@ void imageConvolution(int argc, char **argv)
     cudaEventRecord(start);
     //Flip kernels to match convolution property and apply kernels to image
     for(int i =0; i < numKernels;i++ ){
-<<<<<<< HEAD
-      applyKernelToImageSerial(hData, width, height,kernels[i],kernelDimension,imagePath);
-=======
-      //printKernel(kernels[i],kernelDimension);
-      applyKernelToImage(hData, width, height,kernels[i],kernelDimension,imagePath);
->>>>>>> 63a843e3a9b05e0b4bd214d39f6d506727b17a17
+      applyKernelToImageParallelNaive(hData, width, height,kernels[i],kernelDimension,imagePath);
     } 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
@@ -82,16 +75,38 @@ void imageConvolution(int argc, char **argv)
 }
 
 void applyKernelToImageParallelNaive(float * image, int imageWidth, int imageHeight, float * kernel, int kernelDimension, char *imagePath){
+  int *d_kernelDimensionX,*d_kernelDimensionY,*d_imageWidth,*d_imageHeight;
+  float *d_kernel,*d_image,*d_sumArray;
+  
+  float *sumArray = (float*)malloc(imageWidth*imageHeight);
+  int sizeInt = sizeof(int);
+  int sizeFloat = sizeof(float);
+
+  cudaMalloc((void **)&d_kernelDimensionX,sizeInt);
+  cudaMalloc((void **)&d_kernelDimensionY,sizeInt);
+  cudaMalloc((void **)&d_imageWidth,sizeInt);
+  cudaMalloc((void **)&d_imageHeight,sizeInt);
+  cudaMalloc((void **)&d_kernel,sizeFloat);
+  cudaMalloc((void **)&d_image,sizeFloat);
+  cudaMalloc((void **)&d_sumArray,sizeFloat);
+
+  cudaMemcpy(d_kernelDimensionX,&kernelDimension,sizeInt,cudaMemcpyHostToDevice);
+  cudaMemcpy(d_kernelDimensionY,&kernelDimension,sizeInt,cudaMemcpyHostToDevice);
+  cudaMemcpy(d_imageWidth,&imageWidth,sizeInt,cudaMemcpyHostToDevice);
+  cudaMemcpy(d_imageHeight,&imageHeight,sizeInt,cudaMemcpyHostToDevice);
+  cudaMemcpy(d_kernel,&kernel,sizeFloat,cudaMemcpyHostToDevice);
+  cudaMemcpy(d_image,&image,sizeFloat,cudaMemcpyHostToDevice);
+
+  dim3 gridNumber( imageHeight,imageWidth );
+  dim3 threadsPerBlock( 512);
+  //printf("%f \n", kernel[0]); 
+  applyKernelPerPixelParallel<<<8,160>>>(d_kernelDimensionX,d_kernelDimensionY,d_imageWidth,d_imageHeight, d_kernel,d_image,d_sumArray);
+
+  cudaMemcpy(&sumArray,d_sumArray,sizeFloat,cudaMemcpyHostToDevice);
+  printf("%f \n",sumArray[0]);
   unsigned int size = imageWidth * imageHeight * sizeof(float);
   float *newImage = (float *) malloc(size);
-  for(int y =0; y < imageHeight; y++){
-    for(int x=0; x < imageWidth; x++){
 
-      float sum = applyKernelPerPixel(y,x,kernelDimension,kernelDimension,imageWidth,imageHeight, kernel,image);
-      //Normalising output - image doesn't get brighter or dimmer
-       newImage[y*imageWidth+x] = sum/(kernelDimension * kernelDimension);
-    }
-  }
   printImage(newImage,imageWidth,imageHeight,"newImage.txt");
   char outputFilename[1024];
   strcpy(outputFilename, imagePath);
@@ -140,33 +155,39 @@ float applyKernelPerPixel(int y, int x,int kernelX, int kernelY, int imageWidth,
        }     
       }
       return sum;
-<<<<<<< HEAD
 }
 
-__global__ void applyKernelPerPixelParallel(int y, int x,int kernelX, int kernelY, int imageWidth, int imageHeight, float *kernel, float *image){
-  float sum = 0;
-  int offsetX = (kernelX - 1) / 2;
-  int offsetY = (kernelY - 1) / 2;
-
-  for (int j = 0; j < kernelY; j++) {
+__global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_kernelDimensionY, int * d_imageWidth, int * d_imageHeight, float * d_kernel, float * d_image,float * d_sumArray){
+  int x= threadIdx.x;
+  int y= threadIdx.y;
+  //printf("%d \n",x); 
+  //printf("%d \n",y); 
+  int offsetX = (*d_kernelDimensionX - 1) / 2;
+  int offsetY = (*d_kernelDimensionY - 1) / 2;
+  float sumy =0;
+  for (int j = 0; j < *d_kernelDimensionY; j++) {
     //Ignore out of bounds
     if (y + j < offsetY
-            || y + j - offsetY >= imageHeight)
+            || y + j - offsetY >= *d_imageHeight)
             continue;
 
-       for (int i = 0; i < kernelX; i++) {
+       for (int i = 0; i < *d_kernelDimensionX; i++) {
          //Ignore out of bounds
          if (x + i < offsetX
-                    || x + i - offsetX >= imageWidth)
+                    || x + i - offsetX >= *d_imageWidth)
             continue;
 
-         float k = kernel[i + j * kernelY];
-         float imageElement =  image[y*imageWidth+x + i - offsetX + imageWidth*(j-1)];
+         float k = d_kernel[i + j * (*d_kernelDimensionY)];
+        //  printf("%d \n",(i + j * (*d_kernelDimensionY))); 
+         printf("%f \n", d_kernel[0]); 
+         float imageElement =  d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)];
          float value = k * imageElement;
-         sum = sum +value; 
-       }     
+         sumy = sumy +value; 
+        
+       } 
+       //printf("%f \n",sumy);    
       }
+      
+      d_sumArray[y+x] = sumy;
       //return sum;
-=======
->>>>>>> 63a843e3a9b05e0b4bd214d39f6d506727b17a17
 }
