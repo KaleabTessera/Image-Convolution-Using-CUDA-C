@@ -16,7 +16,10 @@ void loadKernels(float * kernel, char buf[512]);
 void loadAllKernels(float ** kernels,  FILE* fp);
 int getNumKernels(FILE* fp);
 float applyKernelPerPixel(int y, int x,int kernelX, int kernelY, int imageWidth, int imageHeight, float * kernel,float *image);
+<<<<<<< HEAD
 void applyKernelToImageParallelNaive(float * image, int imageWidth, int imageHeight, float * kernel, int kernelDimension, char *imagePath);
+=======
+>>>>>>> 63a843e3a9b05e0b4bd214d39f6d506727b17a17
 
 int main(int argc, char **argv)
 {
@@ -64,7 +67,12 @@ void imageConvolution(int argc, char **argv)
     cudaEventRecord(start);
     //Flip kernels to match convolution property and apply kernels to image
     for(int i =0; i < numKernels;i++ ){
+<<<<<<< HEAD
       applyKernelToImageSerial(hData, width, height,kernels[i],kernelDimension,imagePath);
+=======
+      //printKernel(kernels[i],kernelDimension);
+      applyKernelToImage(hData, width, height,kernels[i],kernelDimension,imagePath);
+>>>>>>> 63a843e3a9b05e0b4bd214d39f6d506727b17a17
     } 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
@@ -132,6 +140,7 @@ float applyKernelPerPixel(int y, int x,int kernelX, int kernelY, int imageWidth,
        }     
       }
       return sum;
+<<<<<<< HEAD
 }
 
 __global__ void applyKernelPerPixelParallel(int y, int x,int kernelX, int kernelY, int imageWidth, int imageHeight, float *kernel, float *image){
@@ -158,4 +167,6 @@ __global__ void applyKernelPerPixelParallel(int y, int x,int kernelX, int kernel
        }     
       }
       //return sum;
+=======
+>>>>>>> 63a843e3a9b05e0b4bd214d39f6d506727b17a17
 }
