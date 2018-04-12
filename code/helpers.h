@@ -9,6 +9,7 @@ void loadAllKernels(float ** kernels, FILE* fp){
     char buf[512];
     int index = 0;
     
+   
     while (fgets(buf, sizeof(buf), fp) != NULL)
     {
       loadKernels(kernels[index],buf);
@@ -71,16 +72,18 @@ void printKernel(float* kernel, int kernelDimension){
 }
 
 int getNumKernels(FILE* fp){
-  int ch, lines=0;
-  while(!feof(fp))
-  {
-      ch = fgetc(fp);
-      if(ch == '\n')
-      {
-        lines++;
-      }
-  }
-  rewind(fp);
-  return lines;
+    return 1;
+//   int ch, lines=0;
+//   while(!feof(fp))
+//   {
+//        printf("2");
+//       ch = fgetc(fp);
+//       if(ch == '\n')
+//       {
+//         lines++;
+//       }
+//   }
+//   rewind(fp);
+//   return lines;
 }
 #endif 
