@@ -56,19 +56,23 @@ void imageConvolutionSerial(const char *imageFilename,char **argv)
     printf("Time Serial Implementation: %f \n",milliseconds);
 }
 void applyKernelToImageSerial(float * image, int imageWidth, int imageHeight, float * kernel, int kernelDimension, char *imagePath){
+  printImage(image,imageWidth,imageHeight,"originalImage.txt");
   unsigned int size = imageWidth * imageHeight * sizeof(float);
   float *newImage = (float *) malloc(size);
   for(int y =0; y < imageHeight; y++){
     for(int x=0; x < imageWidth; x++){
       float sum = applyKernelPerPixel(y,x,kernelDimension,kernelDimension,imageWidth,imageHeight, kernel,image);
-      //Normalising output - image doesn't get brighter or dimmer
-       newImage[y*imageWidth+x] = sum/(kernelDimension * kernelDimension);
+      //Normalising output 
+        if(sum < 0)
+          sum = 0;
+        else if(sum >1)
+          sum = 1;
+       newImage[y*imageWidth+x] = sum;
     }
   }
-  printImage(newImage,imageWidth,imageHeight,"newImage.txt");
   char outputFilename[1024];
   strcpy(outputFilename, imagePath);
-  strcpy(outputFilename + strlen(imagePath) - 4, "_out.pgm");
+  strcpy(outputFilename + strlen(imagePath) - 4, "_serial_out.pgm");
   sdkSavePGM(outputFilename, newImage, imageWidth, imageHeight);
 }
 

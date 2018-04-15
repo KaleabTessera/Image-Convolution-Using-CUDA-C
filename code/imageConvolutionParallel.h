@@ -87,10 +87,9 @@ void applyKernelToImageParallelNaive(float * image, int imageWidth, int imageHei
   applyKernelPerPixelParallel<<<dimGrid,dimBlock>>>(d_kernelDimensionX,d_kernelDimensionY,d_imageWidth,d_imageHeight, d_kernel,d_image,d_sumArray);
   cudaMemcpy(sumArray,d_sumArray,sizeImageArray,cudaMemcpyDeviceToHost);
 
-  //printImage(d_sumArray,imageWidth,imageHeight,"newImage.txt");
   char outputFilename[1024];
   strcpy(outputFilename, imagePath);
-  strcpy(outputFilename + strlen(imagePath) - 4, "_out.pgm");
+  strcpy(outputFilename + strlen(imagePath) - 4, "_parallel_out.pgm");
   sdkSavePGM(outputFilename, sumArray, imageWidth, imageHeight);
 }
 __global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_kernelDimensionY, int * d_imageWidth, int * d_imageHeight, float * d_kernel, float * d_image,float * d_sumArray){
@@ -98,27 +97,19 @@ __global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_ke
   int x = blockIdx.x*blockDim.x+threadIdx.x;
   int offsetX = (*d_kernelDimensionX - 1) / 2;
   int offsetY = (*d_kernelDimensionY - 1) / 2;
-//   printf("offsetX: %d \n",offsetX); 
   float sum =0.0;
   if ((y < (*d_imageWidth)) && (x < (*d_imageWidth))){
   for (int j = 0; j < *d_kernelDimensionY; j++) {
     //Ignore out of bounds
     if (y + j < offsetY
             || y + j - offsetY >= *d_imageHeight)
-            {
-                //printf("y: %d \n",y);
-                continue;
-            }
-            
+            continue;
 
        for (int i = 0; i < *d_kernelDimensionX; i++) {
          //Ignore out of bounds
          if (x + i < offsetX
                     || x + i - offsetX >= *d_imageWidth)
-                    {
-                        //printf("x: %d \n",y);
-                continue;
-                    }
+                    continue;
 
          float k = d_kernel[i + j * (*d_kernelDimensionY)];
          float imageElement =  d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)];
@@ -126,8 +117,12 @@ __global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_ke
          sum = sum +value; 
        }  
       }
-      int index = y*(*d_imageWidth)+x;
-      d_sumArray[y*(*d_imageWidth)+x] = sum/9;
+      //Normalising output 
+      if(sum < 0)
+          sum = 0;
+        else if(sum >1)
+          sum = 1;
+      d_sumArray[y*(*d_imageWidth)+x] = sum;
   }
 }
 #endif
