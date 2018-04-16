@@ -5,9 +5,9 @@
 #include "helpers.h"
 #include "imageConvolutionSerial.h"
 #include "imageConvolutionParallel.h"
+#include "imageConvolutionParallelSharedMemory.h"
 
-
-const char *imageFilename = "image21.pgm";
+const char *imageFilename = "lena_bw.pgm";
 
 int main(int argc, char **argv)
 {
@@ -15,6 +15,7 @@ int main(int argc, char **argv)
   printf("Please select an option \n");
   printf("1 - Serial Implementation \n");
   printf("2 - Naive parallel implementation \n");
+  printf("3 - Shared memory implementation \n");
   
   int option;
   scanf("%d", &option);
@@ -27,6 +28,10 @@ int main(int argc, char **argv)
     case 2  :
        imageConvolutionParallel(imageFilename,argv);
        break; 
+
+    case 3  :
+      imageConvolutionParallelSharedMemory(imageFilename,argv);
+      break; 
    
     default : 
       printf("Incorrect input \n");
