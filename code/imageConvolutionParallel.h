@@ -87,6 +87,7 @@ void applyKernelToImageParallelNaive(float * image, int imageWidth, int imageHei
   applyKernelPerPixelParallel<<<dimGrid,dimBlock>>>(d_kernelDimensionX,d_kernelDimensionY,d_imageWidth,d_imageHeight, d_kernel,d_image,d_sumArray);
   cudaMemcpy(sumArray,d_sumArray,sizeImageArray,cudaMemcpyDeviceToHost);
 
+  printImage(sumArray,imageWidth,imageHeight,"newImageP.txt");
   char outputFilename[1024];
   strcpy(outputFilename, imagePath);
   strcpy(outputFilename + strlen(imagePath) - 4, "_parallel_out.pgm");
