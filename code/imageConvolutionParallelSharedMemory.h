@@ -51,7 +51,9 @@ void imageConvolutionParallelSharedMemory(const char *imageFilename,char **argv)
     cudaEventElapsedTime(&milliseconds, start, stop);
     printf("Time Naive Parallel Implementation: %f \n",milliseconds);
 }
-#define BLOCK_SIZE  8
+
+
+#define BLOCK_SIZE  12
 void applyKernelToImageParallelSharedMemory(float * image, int imageWidth, int imageHeight, float * kernel, int kernelDimension, char *imagePath){
   int *d_kernelDimensionX,*d_kernelDimensionY,*d_imageWidth,*d_imageHeight;
   float *d_kernel,*d_image,*d_sumArray;
@@ -86,6 +88,12 @@ void applyKernelToImageParallelSharedMemory(float * image, int imageWidth, int i
   dim3 dimGrid(numBlocks, numBlocks, 1);
   dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);  
   applyKernelPerPixelParallelSharedMemory<<<dimGrid,dimBlock>>>(d_kernelDimensionX,d_kernelDimensionY,d_imageWidth,d_imageHeight, d_kernel,d_image,d_sumArray);
+  cudaError_t errSync  = cudaGetLastError();
+  cudaError_t errAsync = cudaDeviceSynchronize();
+  if (errSync != cudaSuccess) 
+    printf("Sync kernel error: %s\n", cudaGetErrorString(errSync));
+  if (errAsync != cudaSuccess)
+    printf("Async kernel error: %s\n", cudaGetErrorString(errAsync));
   cudaMemcpy(sumArray,d_sumArray,sizeImageArray,cudaMemcpyDeviceToHost);
   
   printf("sum: %f \n",sumArray[0]);
@@ -95,69 +103,78 @@ void applyKernelToImageParallelSharedMemory(float * image, int imageWidth, int i
   strcpy(outputFilename + strlen(imagePath) - 4, "_sharedMemory_parallel_out.pgm");
   sdkSavePGM(outputFilename, sumArray, imageWidth, imageHeight);
 }
-// // Get a matrix element
-// __device__ float GetElement(const Matrix A, int row, int col)
-// {
-//     return A.elements[row * A.stride + col];
-// }
 
-// __device__ Matrix GetSubMatrix(Matrix A, int row, int col) 
-// {
-//     float imageElement =  local_imageSection[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)];
-// }
 
 __global__ void applyKernelPerPixelParallelSharedMemory(int * d_kernelDimensionX, int * d_kernelDimensionY, int * d_imageWidth, int * d_imageHeight, float * d_kernel, float * d_image,float * d_sumArray){
   int y = blockIdx.y*blockDim.y+threadIdx.y;
   int x = blockIdx.x*blockDim.x+threadIdx.x;
   int offsetX = (*d_kernelDimensionX - 1) / 2;
   int offsetY = (*d_kernelDimensionY - 1) / 2;
-  float sum =0.0;
+  
 
   int row = threadIdx.y;
   int col = threadIdx.x;
+  
   __shared__ float local_imageSection[BLOCK_SIZE][BLOCK_SIZE];
   int imageIndex = y * (*d_imageWidth) + x;
-  // if(row == 0 && col == 0)
-    //printf("index: %f \n",d_image[imageIndex]);
-    local_imageSection[row][col] = d_image[imageIndex];
+  local_imageSection[row][col] = d_image[imageIndex];
   __syncthreads();
 
+  if ((y < (*d_imageWidth)) && (x < (*d_imageWidth))){
+  float sum =0.0;
   for (int j = 0; j < *d_kernelDimensionY; j++) {
     //Ignore out of bounds
-    if (y + j < offsetY
-            || y + j - offsetY >= *d_imageHeight)
-            continue;
+    if (row+j-offsetY <0           
+   // ||           row + j - offsetY >= BLOCK_SIZE
+   )
+            {
+              continue;
+            }
+            
 
        for (int i = 0; i < *d_kernelDimensionX; i++) {
          //Ignore out of bounds
-         if (x + i < offsetX
-                    || x + i - offsetX >= *d_imageWidth)
-                    continue;
+         if (
+           col+i-offsetX<0                  
+       //  ||                   col + i - offsetX >= BLOCK_SIZE
+         )
+                    {
+              continue;
+                    }
+                    
 
          float k = d_kernel[i + j * (*d_kernelDimensionY)];
-        //  float imageElement =  d_image[y* (BLOCK_SIZE)+x + i - offsetX + (*BLOCK_SIZE)*(j-1)];
-         float imageElement =  local_imageSection[row][col];
-      //   if(imageIndex < 10)
-        //     printf("x: %d y: %d value: %f \n",x,y,imageElement);
+        float imageElement =  local_imageSection[row+j-offsetY][col+i-offsetX];
+          // if(imageIndex == 0)
+          //     printf("row: %d x: %d value: %f \n",row,col,imageElement);
+        //  float imageElement =  local_imageSection[row+j-offsetY][col+i-offsetX];
+          //if(imageIndex == 12){
+            //printf("row: %d col: %d i: %d e: %f \n",row,col,i,imageElement);
+            //  printf("row: %d x: %d value: %f \n",row+j-offsetY,col+i-offsetX,local_imageSection[row+j-offsetY+1][col+i-offsetX+1]);
+          //}
+              
           float value = k * imageElement;
+          
           sum = sum +value; 
+          if(imageIndex == 12)
+             printf("kIndex: %d k: %f * image: %f = value: %f , sum: %f \n",i + j * (*d_kernelDimensionY),k,imageElement,value,sum);
        }  
       }
       __syncthreads();
       //Normalising output 
       
-       if(imageIndex < 10)
-             printf("before sum: %f index: %d value: %f \n",sum,y*(*d_imageWidth)+x,d_sumArray[y*(*d_imageWidth)+x]);
+        if(imageIndex == 524)
+          printf("before sum: %f index: %d value: %f \n",sum,y*(*d_imageWidth)+x,d_sumArray[y*(*d_imageWidth)+x]);
              
       if(sum < 0)
           sum = 0;
         else if(sum >1)
           sum = 1;
 
-      d_sumArray[y*(*d_imageWidth)+x] = sum;
-      if(imageIndex < 10)
-             printf("sum: %f index: %d value: %f \n",sum,y*(*d_imageWidth)+x,d_sumArray[y*(*d_imageWidth)+x]);
+     // if((y*(*d_imageWidth)+x) % 12 != 0)
+        d_sumArray[y*(*d_imageWidth)+x] = sum;
+        sum = 0;
   }
-  //}
+  }
 
 #endif

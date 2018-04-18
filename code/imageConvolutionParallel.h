@@ -114,10 +114,15 @@ __global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_ke
 
          float k = d_kernel[i + j * (*d_kernelDimensionY)];
          float imageElement =  d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)];
+         if((y * (*d_imageWidth) + x) == 0)
+              printf("x: %d y: %d value: %f \n",y,x,d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)]);
          float value = k * imageElement;
          sum = sum +value; 
        }  
       }
+      int imageIndex = y * (*d_imageWidth) + x;
+      if(imageIndex ==12)
+             printf("before sum: %f index: %d value: %f \n",sum,y*(*d_imageWidth)+x,d_sumArray[y*(*d_imageWidth)+x]);
       //Normalising output 
       if(sum < 0)
           sum = 0;
