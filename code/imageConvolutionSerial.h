@@ -1,6 +1,6 @@
 #ifndef IMAGECONVOLUTIONSERIAL
 #define IMAGECONVOLUTIONSERIAL
-#define KERNELDIMENSION 5 
+#define KERNELDIMENSION 3
 
 void applyKernelToImageSerial(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);
 void flipKernel(float *kernel, int kernelDimension);

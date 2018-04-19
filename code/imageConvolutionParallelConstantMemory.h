@@ -1,6 +1,6 @@
 #ifndef IMAGECONVOLUTIONPARALLELCONSTANTMEMORY
 #define IMAGECONVOLUTIONPARALLELCONSTANTMEMORY
-#define KERNEL_DIMENSION 5
+#define KERNEL_DIMENSION 3
 #define BLOCK_WIDTH 3
 
 void applyKernelToImageParallelConstantMemory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);

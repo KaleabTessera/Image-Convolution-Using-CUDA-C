@@ -1,6 +1,6 @@
 #ifndef IMAGECONVOLUTIONPARALLEL
 #define IMAGECONVOLUTIONPARALLEL
-#define KERNELDIMENSION 5
+#define KERNELDIMENSION 3
 #define BLOCK_WIDTH 13
 
 void applyKernelToImageParallelNaive(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);

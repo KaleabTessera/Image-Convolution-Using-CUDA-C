@@ -10,8 +10,8 @@
 #include "imageConvolutionTextureMemory.h"
 
 
-// const char *imageFilename = "lena_bw.pgm";
-const char *imageFilename = "galaxy.ascii.pgm";
+ const char *imageFilename = "lena_bw.pgm";
+//const char *imageFilename = "galaxy.ascii.pgm";
 #define KERNELDIMENSION 3 
 
 int main(int argc, char **argv)

@@ -1,7 +1,7 @@
 #ifndef IMAGECONVOLUTIONPARALLELTEXTUREMEMORY
 #define IMAGECONVOLUTIONPARALLELTEXTUREMEMORY
 #define BLOCK_WIDTH 3
-#define KERNELDIMENSION 5 
+#define KERNELDIMENSION 3
 void applyKernelToImageParallelTextureMomory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);
 float applyKernelPerPixelTextureMomory(int y, int x, int kernelX, int kernelY, int imageWidth, int imageHeight, float *kernel, float *image);
 __global__ void applyKernelPerPixelParallelTextureMomory(int *kernelX, int *kernelY, int *imageWidth, int *imageHeight, float *kernel, float *image, float *sumArray);

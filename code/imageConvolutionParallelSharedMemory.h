@@ -1,7 +1,7 @@
 #ifndef IMAGECONVOLUTIONPARALLELSHAREDMEMORY
 #define IMAGECONVOLUTIONPARALLELSHAREDMEMORY
-#define KERNELDIMENSION 5
-#define BLOCK_WIDTH 15
+#define KERNELDIMENSION 3
+#define BLOCK_WIDTH 13
 
 void applyKernelToImageParallelSharedMemory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);
 float applyKernelPerPixelSharedMemory(int y, int x, int kernelX, int kernelY, int imageWidth, int imageHeight, float *kernel, float *image);
