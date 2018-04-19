@@ -1,5 +1,7 @@
 #ifndef IMAGECONVOLUTIONPARALLELSHAREDMEMORY
 #define IMAGECONVOLUTIONPARALLELSHAREDMEMORY
+#define KERNELDIMENSION 5
+#define BLOCK_WIDTH 15
 
 void applyKernelToImageParallelSharedMemory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);
 float applyKernelPerPixelSharedMemory(int y, int x, int kernelX, int kernelY, int imageWidth, int imageHeight, float *kernel, float *image);
@@ -28,7 +30,7 @@ void imageConvolutionParallelSharedMemory(const char *imageFilename, char **argv
     exit(EXIT_FAILURE);
   }
   int numKernels = getNumKernels(fp);
-  int kernelDimension = 3;
+  // int kernelDimension = 3;
 
   float **kernels = (float **)malloc(sizeof(float *) * numKernels);
   for (int i = 0; i < numKernels; i++)
@@ -37,24 +39,25 @@ void imageConvolutionParallelSharedMemory(const char *imageFilename, char **argv
   }
   loadAllKernels(kernels, fp);
   fclose(fp);
-
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start);
-  //Flip kernels to match convolution property and apply kernels to image
-  for (int i = 0; i < numKernels; i++)
+  for (int i = 0; i < 10; i++)
   {
-    applyKernelToImageParallelSharedMemory(hData, width, height, kernels[i], kernelDimension, imagePath);
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+    //Flip kernels to match convolution property and apply kernels to image
+    for (int i = 0; i < numKernels; i++)
+    {
+      applyKernelToImageParallelSharedMemory(hData, width, height, kernels[i], KERNELDIMENSION, imagePath);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    printf("Time Shared Memory Parallel Implementation: %f \n", milliseconds);
   }
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  float milliseconds = 0;
-  cudaEventElapsedTime(&milliseconds, start, stop);
-  printf("Time Naive Parallel Implementation: %f \n", milliseconds);
 }
 
-#define BLOCK_SIZE 13
 void applyKernelToImageParallelSharedMemory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath)
 {
   //printImage(image, imageWidth, imageHeight, "orginalImagePartition.txt");
@@ -82,13 +85,12 @@ void applyKernelToImageParallelSharedMemory(float *image, int imageWidth, int im
   cudaMemcpy(d_image, image, sizeImageArray, cudaMemcpyHostToDevice);
 
   int width = imageWidth * imageHeight;
-  int numBlocks = (imageWidth) / BLOCK_SIZE;
+  int numBlocks = (imageWidth) / BLOCK_WIDTH;
 
-  if (width % BLOCK_SIZE)
+  if (width % BLOCK_WIDTH)
     numBlocks++;
-  //printf("numBlocks: %d \n", numBlocks);
   dim3 dimGrid(numBlocks, numBlocks, 1);
-  dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);
+  dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH, 1);
   applyKernelPerPixelParallelSharedMemory<<<dimGrid, dimBlock>>>(d_kernelDimensionX, d_kernelDimensionY, d_imageWidth, d_imageHeight, d_kernel, d_image, d_sumArray);
   cudaError_t errSync = cudaGetLastError();
   cudaError_t errAsync = cudaDeviceSynchronize();
@@ -116,13 +118,13 @@ __global__ void applyKernelPerPixelParallelSharedMemory(int *d_kernelDimensionX,
   int row = threadIdx.y;
   int col = threadIdx.x;
 
-  __shared__ float local_imageSection[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float local_imageSection[BLOCK_WIDTH][BLOCK_WIDTH];
   int imageIndex = y * (*d_imageWidth) + x;
   local_imageSection[row][col] = d_image[y * (*d_imageWidth) + x - 2 * blockIdx.x];
 
   __syncthreads();
 
-  if ((y < (*d_imageWidth)) && (x < (*d_imageWidth))) //&& row < BLOCK_SIZE - 1 && col < BLOCK_SIZE - 1)
+  if ((y < (*d_imageWidth)) && (x < (*d_imageWidth)))
   {
     float sum = 0.0;
     for (int j = 0; j < *d_kernelDimensionY; j++)
@@ -147,48 +149,19 @@ __global__ void applyKernelPerPixelParallelSharedMemory(int *d_kernelDimensionX,
           continue;
         } // left apron
 
-        else if ((threadIdx.x == (blockDim.x - 1)
-         ||                  (threadIdx.x + j - offsetY) > blockDim.x -1 )) // right apron
+        else if ((threadIdx.x == (blockDim.x - 1) || (threadIdx.x + j - offsetY) > blockDim.x - 1)) // right apron
         {
           continue;
         }
         else
         {
-          // check col next
-          // if (blockIdx.y == 0 && (threadIdx.y + i - offsetX) < 0) // top apron
-          // {
-          //   if (blockIdx.y * blockDim.y == 0 & blockIdx.x * blockDim.x == 0)
-          //   {
-          //     printf("top %d %d \n", row, col);
-          //   }
-          //   value = 0;
-          // }
-          // else if (blockIdx.y == (gridDim.y - 1) &&
-          //          (threadIdx.y + i - offsetX) > blockDim.y - 1) // bottom apron
-          // {
-          //   if (blockIdx.y * blockDim.y == 0 & blockIdx.x * blockDim.x == 0)
-          //   {
-          //     printf("bottom %d %d \n", row, col);
-          //   }
-          //   value = 0;
-          // }
-          // else // safe case
-          // {
 
           float k = d_kernel[i + j * (*d_kernelDimensionY)];
           float imageElement = local_imageSection[row + j - offsetY][col + i - offsetX];
 
           value = k * imageElement;
-          // if ((y * (*d_imageWidth) + x  -2 * blockIdx.x) == comp)
-          // {
-          //   printf("block: %d thread: %d k: %f img: %f value: %f sum: %f \n",blockIdx.x,threadIdx.x, k, imageElement, value, sum);
-          // }
         }
         sum = sum + value;
-        // if (y * (*d_imageWidth) + x == 12)
-        //   {
-        //     printf("value: %f sum: %f \n",value, sum);
-        //   }
       }
     }
 

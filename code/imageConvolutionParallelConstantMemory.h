@@ -1,6 +1,6 @@
 #ifndef IMAGECONVOLUTIONPARALLELCONSTANTMEMORY
 #define IMAGECONVOLUTIONPARALLELCONSTANTMEMORY
-#define KERNEL_DIMENSION 3
+#define KERNEL_DIMENSION 5
 #define BLOCK_WIDTH 3
 
 void applyKernelToImageParallelConstantMemory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath);
@@ -46,24 +46,22 @@ void imageConvolutionParallelConstantMemory(const char *imageFilename, char **ar
     }
     loadAllKernels(kernels, fp);
     fclose(fp);
-
-    // __constant__ float kernel[kernelDimension*kernelDimension];
-    // __constant__ float wavelength[5];
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
-    //Flip kernels to match convolution property and apply kernels to image
-    for (int i = 0; i < numKernels; i++)
+    for (int i = 0; i < 10; i++)
     {
-        applyKernelToImageParallelConstantMemory(hData, width, height, kernels[i], kernelDimension, imagePath);
+        cudaEvent_t start, stop;
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+        cudaEventRecord(start);
+        for (int i = 0; i < numKernels; i++)
+        {
+            applyKernelToImageParallelConstantMemory(hData, width, height, kernels[i], kernelDimension, imagePath);
+        }
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        printf("Time Constant Implementation: %f \n", milliseconds);
     }
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    float milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    printf("Time Constant Implementation: %f \n", milliseconds);
 }
 
 void applyKernelToImageParallelConstantMemory(float *image, int imageWidth, int imageHeight, float *kernel, int kernelDimension, char *imagePath)
@@ -102,7 +100,6 @@ void applyKernelToImageParallelConstantMemory(float *image, int imageWidth, int 
     dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH, 1);
     applyKernelPerPixelParallelConstantMemory<<<dimGrid, dimBlock>>>(d_image, d_sumArray);
     cudaMemcpy(sumArray, d_sumArray, sizeImageArray, cudaMemcpyDeviceToHost);
-
 
     char outputFilename[1024];
     strcpy(outputFilename, imagePath);
