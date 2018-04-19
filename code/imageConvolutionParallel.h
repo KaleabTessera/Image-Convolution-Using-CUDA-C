@@ -87,13 +87,15 @@ void applyKernelToImageParallelNaive(float * image, int imageWidth, int imageHei
   applyKernelPerPixelParallel<<<dimGrid,dimBlock>>>(d_kernelDimensionX,d_kernelDimensionY,d_imageWidth,d_imageHeight, d_kernel,d_image,d_sumArray);
   cudaMemcpy(sumArray,d_sumArray,sizeImageArray,cudaMemcpyDeviceToHost);
 
-  printImage(sumArray,imageWidth,imageHeight,"newImageP.txt");
+  //printImage(sumArray,imageWidth,imageHeight,"newImageP.txt");
   char outputFilename[1024];
   strcpy(outputFilename, imagePath);
   strcpy(outputFilename + strlen(imagePath) - 4, "_parallel_out.pgm");
   sdkSavePGM(outputFilename, sumArray, imageWidth, imageHeight);
 }
 __global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_kernelDimensionY, int * d_imageWidth, int * d_imageHeight, float * d_kernel, float * d_image,float * d_sumArray){
+  
+  int comp = 45;
   int y = blockIdx.y*blockDim.y+threadIdx.y;
   int x = blockIdx.x*blockDim.x+threadIdx.x;
   int offsetX = (*d_kernelDimensionX - 1) / 2;
@@ -114,21 +116,30 @@ __global__ void applyKernelPerPixelParallel(int * d_kernelDimensionX, int * d_ke
 
          float k = d_kernel[i + j * (*d_kernelDimensionY)];
          float imageElement =  d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)];
-         if((y * (*d_imageWidth) + x) == 0)
-              printf("x: %d y: %d value: %f \n",y,x,d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)]);
+        //  if((y * (*d_imageWidth) + x) == 0)
+        //       printf("x: %d y: %d value: %f \n",y,x,d_image[y* (*d_imageWidth)+x + i - offsetX + (*d_imageWidth)*(j-1)]);
          float value = k * imageElement;
+          // if ((y * (*d_imageWidth) + x) == comp)
+          // {
+          //   printf("k: %f img: %f value: %f sum: %f \n", k, imageElement, value, sum);
+          // }
          sum = sum +value; 
        }  
       }
       int imageIndex = y * (*d_imageWidth) + x;
-      if(imageIndex ==12)
-             printf("before sum: %f index: %d value: %f \n",sum,y*(*d_imageWidth)+x,d_sumArray[y*(*d_imageWidth)+x]);
+      // if(imageIndex ==12)
+      //        printf("before sum: %f index: %d value: %f \n",sum,y*(*d_imageWidth)+x,d_sumArray[y*(*d_imageWidth)+x]);
       //Normalising output 
       if(sum < 0)
           sum = 0;
         else if(sum >1)
           sum = 1;
       d_sumArray[y*(*d_imageWidth)+x] = sum;
+
+      // if ((y*(*d_imageWidth)+x) ==comp)
+      //  {
+      //    printf("x : %d y : %d sumy: %f \n", x, y, sum);
+      //  }
   }
 }
 #endif

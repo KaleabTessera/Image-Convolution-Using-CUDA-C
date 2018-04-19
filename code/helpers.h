@@ -57,6 +57,9 @@ void printImage(float *image,int width,int height,char * fileName){
    for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
             fprintf(f,"%f ", image[i*width+j]);
+            if((i*width+j) % 12 == 0){
+               fprintf(f,"\n");
+           }
         }
         fprintf(f,"\n");
     }
